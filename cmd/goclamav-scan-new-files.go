@@ -3,24 +3,16 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/fsnotify/fsnotify"
 )
 
-func execBashPipedCommand(command string) (string, error) {
+func execBashPipedCommand(command string) ([]byte, error) {
 	cmd := exec.Command("bash", "-c", command)
-
-	out, err := cmd.CombinedOutput()
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if out != nil {
-		fmt.Printf(string(out))
-	}
-	return string(out), err
+	return cmd.CombinedOutput()
 }
 
 func main() {
@@ -39,25 +31,23 @@ func main() {
 					return
 				}
 				log.Println("event:", event)
-				if event.Op&fsnotify.Write == fsnotify.Write {
+				if event.Op&fsnotify.Create == fsnotify.Create || event.Op&fsnotify.Write == fsnotify.Write || event.Op&fsnotify.Rename == fsnotify.Rename {
 					log.Println("modified file:", event.Name)
 
-					// var err = os.Remove($HOME/virus-scan.log)
-					// if err != nil {
-					// 	log.Print(err.Error())
-					// }
+					user, _ := execBashPipedCommand("who | cut -d' ' -f1")
+					homeDir, _ := execBashPipedCommand(fmt.Sprintf("getent passwd %s | cut -d: -f6", user[:len(user)-1]))
 
-					// out, err := os.Create("$HOME/virus-quarantine")
-					// if err != nil {
-					// 	log.Println(err)
-					// } else {
-					// 	defer out.Close()
-					// }
+					os.Remove(fmt.Sprintf("%s/virus-scan.log", homeDir[:len(homeDir)-1]))
+					os.Mkdir(fmt.Sprintf("%s/virus-quarantine", homeDir[:len(homeDir)-1]), os.ModePerm)
 
-					// var clamavScan = fmt.Sprintf("clamdscan --move=$HOME/virus-quarantine %s >> $HOME/virus-scan.log", event.Name)
-					// var zenityWarning = fmt.Sprintf("zenity --warning --title \"Virus scan of %s\" --text \"$(cat $HOME/virus-scan.log)\"", event.Name)
-					// var clamavScanZenityWarning = fmt.Sprintf("%s | %s", clamavScan, zenityWarning)
-					// execBashPipedCommand(clamavScanZenityWarning)
+					file := strings.Replace(event.Name, "(", "\\(", -1)
+					file = strings.Replace(file, ")", "\\)", -1)
+					file = strings.Replace(file, " ", "\\ ", -1)
+
+					var clamavScan = fmt.Sprintf("clamscan %v >> %s/virus-scan.log --move=%s/virus-quarantine", file, homeDir[:len(homeDir)-1], homeDir[:len(homeDir)-1])
+					var zenityWarning = fmt.Sprintf("zenity --warning --title \"Virus scan of %v\" --text \"$(cat %s/virus-scan.log)\"", event.Name, homeDir[:len(homeDir)-1])
+					execBashPipedCommand(clamavScan)
+					execBashPipedCommand(zenityWarning)
 				}
 			case err, ok := <-watcher.Errors:
 				if !ok {

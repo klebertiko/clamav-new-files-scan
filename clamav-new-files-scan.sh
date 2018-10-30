@@ -18,7 +18,7 @@ do
      # Have to check file length is nonzero otherwise commands may be repeated
      if [ -s $FILE ]; then
           date > $HOME/virus-scan.log
-          clamdscan --move=$HOME/virus-quarantine $FILE >> $HOME/virus-scan.log
+          clamscan $FILE >> $HOME/virus-scan.log --move=$HOME/virus-quarantine
           zenity --warning --title "Virus scan of $FILE" --text "$(cat $HOME/virus-scan.log)"
      fi
 done
