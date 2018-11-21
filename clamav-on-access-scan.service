@@ -1,0 +1,14 @@
+[Unit]
+Description=ClamAV Scan Opened Files
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=1
+User=root
+ExecStart=/opt/clamav/on-access-scan.sh
+
+[Install]
+WantedBy=multi-user.target
